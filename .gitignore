@@ -1,0 +1,25 @@
+# 隐藏 Material 文件夹
+Material/
+
+# 忽略敏感数据和原始课表 (防止学校数据泄露)
+*.xlsx
+*.xls
+*.csv
+
+# Python 环境与缓存
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+ENV/
+
+# Streamlit 与 IDE 配置
+.streamlit/
+.vscode/
+.idea/
+.DS_Store
+
+# 日志文件
+*.log
