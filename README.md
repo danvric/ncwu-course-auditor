@@ -1,10 +1,6 @@
 # NCWU-Course-Auditor
 > 华水（NCWU）全校课表检索与蹭课辅助系统
 
-
-
-
-
 ## 📖 项目简介
 `NCWU-Course-Auditor` 是一个基于 Streamlit 开发的本地 Web 应用，旨在解决**想蹭课却不知道什么时间、哪个教室有感兴趣的课**的痛点。
 
