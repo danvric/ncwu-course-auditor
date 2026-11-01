@@ -15,8 +15,8 @@
 ### 1. 环境准备
 确保你的电脑已安装 Python 3.8 或更高版本。克隆本项目到本地：
 ```bash
-git clone [https://github.com/](https://github.com/)<你的GitHub用户名>/NCWU-Classroom-Schedule-Explorer.git
-cd NCWU-Classroom-Schedule-Explorer
+git clone [https://github.com/](https://github.com/)<danvric>/ncwu-course-auditor.git
+cd ncwu-course-auditor
 ```
 
 ### 2. 安装依赖
