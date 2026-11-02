@@ -8,6 +8,10 @@ import re
 st.set_page_config(page_title="蹭课小助手", page_icon="🏫", layout="wide")
 st.title("🏫 华水江淮校区蹭课系统")
 
+# 初始化视图状态（默认展开）
+if 'compact_view' not in st.session_state:
+    st.session_state.compact_view = False
+
 # 节次时间映射
 PERIOD_TIME = {
     1: "08:00-08:45", 2: "08:55-09:40", 3: "09:55-10:40", 4: "10:50-11:35", 5: "11:45-12:30",
@@ -20,12 +24,10 @@ PERIOD_TIME = {
 # ==========================================
 @st.cache_data
 def load_data(file_path):
-    # 明确表头在第2行
     df = pd.read_excel(file_path, header=1)
     df.columns = df.columns.astype(str).str.strip()
     df = df.dropna(subset=['节次'])
     
-    # 解析节次
     def parse_time(time_str):
         match = re.search(r"([一二三四五六日])\[(\d+)-(\d+)\]", str(time_str))
         if match:
@@ -43,7 +45,6 @@ def load_data(file_path):
     df[['星期', '节次列表']] = df['节次'].apply(lambda x: pd.Series(parse_time(x)))
     df = df.dropna(subset=['星期'])
     
-    # 解析周次
     def parse_weeks(w_str):
         w_str = str(w_str).strip()
         weeks = []
@@ -66,8 +67,12 @@ def load_data(file_path):
         
     df['周次列表'] = df['周次'].apply(parse_weeks)
     df['教室'] = df['教室'].astype(str).str.replace(r'\[.*?\]', '', regex=True)
-    
     return df
+
+def get_main_course_name(name):
+    name = str(name)
+    name = re.sub(r'[\(（].*?[\)）]', '', name)
+    return name.strip()
 
 # ==========================================
 # 3. 你的个人课表字典
@@ -83,12 +88,17 @@ MY_SCHEDULE = {
 }
 
 # ==========================================
-# 4. 加载数据并提取课程名称列表（供下拉框预测用）
+# 4. 提取数据供下拉框使用
 # ==========================================
 try:
     df = load_data("教室课表.xlsx")
-    # 提取所有不重复的课程名称，并排序
     all_courses = sorted(df['课程名称'].dropna().unique().tolist())
+    my_course_main_names = set()
+    for day_dict in MY_SCHEDULE.values():
+        for course_str in day_dict.values():
+            for c in course_str.split('/'):
+                my_course_main_names.add(get_main_course_name(c))
+    my_courses_list = sorted(list(my_course_main_names))
 except Exception as e:
     st.error(f"读取数据失败：{e}")
     st.stop()
@@ -98,34 +108,37 @@ except Exception as e:
 # ==========================================
 st.sidebar.header("筛选条件")
 
-# 1. 课程名称多选下拉框（支持输入预测）
+skip_courses = st.sidebar.multiselect(
+    "🏃‍♂️ 选择要旷掉的课 (按主干名屏蔽)",
+    options=my_courses_list,
+    default=[]
+)
+if skip_courses:
+    st.sidebar.warning(f"⚠️ 已屏蔽：{', '.join(skip_courses)}")
+
 selected_courses = st.sidebar.multiselect(
-    "🔍 选择感兴趣的课程 (可搜索、可多选，留空则搜全部)",
+    "🔍 选择感兴趣的课程 (可搜索、可多选)",
     options=all_courses,
     default=[]
 )
 
-# 2. 周次多选
 week_options = list(range(1, 19))
 selected_weeks = st.sidebar.multiselect(
     "📅 选择查看哪几周",
     options=week_options,
-    default=[8] # 默认第8周
+    default=[8]
 )
 
-# 3. 星期多选
 weekday_map = {1: "周一", 2: "周二", 3: "周三", 4: "周四", 5: "周五", 6: "周六", 7: "周日"}
 selected_days = st.sidebar.multiselect(
     "📆 选择星期几",
     options=list(weekday_map.keys()),
     format_func=lambda x: weekday_map[x],
-    default=[3, 5] # 默认周三、周五
+    default=[3, 5]
 )
 
-# 4. 节次范围
 time_range = st.sidebar.slider("⏰ 查看哪几节", 1, 12, (6, 10))
 
-# 5. 隐藏冲突开关
 hide_conflicts = st.sidebar.checkbox("🙈 隐藏与我课表冲突的课程", value=False)
 
 # ==========================================
@@ -134,20 +147,26 @@ hide_conflicts = st.sidebar.checkbox("🙈 隐藏与我课表冲突的课程", v
 if not selected_weeks or not selected_days:
     st.warning("请至少在左侧选择一周和一天！")
 else:
+    # 顶部控制栏
+    col_ctrl1, col_ctrl2, _ = st.columns([1, 1, 4])
+    with col_ctrl1:
+        if st.button("📖 一键展开所有", use_container_width=True):
+            st.session_state.compact_view = False
+            st.rerun()
+    with col_ctrl2:
+        if st.button("📑 一键收起所有", use_container_width=True):
+            st.session_state.compact_view = True
+            st.rerun()
+            
+    st.write("---")
+
     for day in selected_days:
-        st.markdown(f"---")
         st.header(f"📅 {weekday_map[day]}")
         
-        # 基础过滤：星期几
         df_day = df[df['星期'] == day]
-        
-        # 基础过滤：周次 (只要这门课在选中的任意一周有开课就算)
         df_day = df_day[df_day['周次列表'].apply(lambda w: any(sel_w in w for sel_w in selected_weeks))]
-        
-        # 基础过滤：节次
         df_day = df_day[df_day['节次列表'].apply(lambda p: any(x in range(time_range[0], time_range[1]+1) for x in p))]
         
-        # 基础过滤：课程名称
         if selected_courses:
             df_day = df_day[df_day['课程名称'].isin(selected_courses)]
             
@@ -155,48 +174,71 @@ else:
             st.info("今天没有符合条件的课程~")
             continue
 
-        # 去重（因为同一门课可能因为周次不同被拆成多行，这里按 课程名+教师+节次 去重）
         df_day = df_day.drop_duplicates(subset=['课程名称', '教师', '节次'])
-
         count_shown = 0
         
         for index, row in df_day.iterrows():
+            target_main_name = get_main_course_name(row['课程名称'])
+            
+            is_skipped_course = any(skip_c in target_main_name for skip_c in skip_courses)
+            if is_skipped_course:
+                continue
+
             periods = row['节次列表']
             start_p, end_p = periods[0], periods[-1]
-            time_str = f"第 {start_p}-{end_p} 节 ({PERIOD_TIME.get(start_p, '')} 开始)"
             
             # 冲突检测
             is_conflict = False
             conflict_course = ""
             for p in periods:
                 if p in MY_SCHEDULE[day]:
-                    is_conflict = True
-                    conflict_course = MY_SCHEDULE[day][p]
-                    break
+                    my_course_name = MY_SCHEDULE[day][p]
+                    my_course_main = get_main_course_name(my_course_name)
+                    is_my_course_skipped = any(skip_c in my_course_main for skip_c in skip_courses)
+                    if not is_my_course_skipped:
+                        is_conflict = True
+                        conflict_course = my_course_name
+                        break
             
-            # 如果勾选了隐藏冲突，且确实有冲突，直接跳过
             if hide_conflicts and is_conflict:
                 continue
                 
             count_shown += 1
             
-            # 渲染卡片
-            with st.container(border=True):
-                col1, col2 = st.columns([4, 1])
-                with col1:
-                    st.subheader(f"📚 {row['课程名称']}")
-                    st.write(f"👨‍🏫 **教师**：{row['教师']} | 🏢 **教室**：{row['教室']}")
-                    st.write(f"⏰ **时间**：{time_str}")
-                    
-                    # 如果选了多周，提示具体是哪几周上课
-                    show_weeks = [w for w in row['周次列表'] if w in selected_weeks]
-                    st.caption(f"🗓️ 选中周次内的上课周：{show_weeks}")
-                    
-                with col2:
-                    if is_conflict:
-                        st.error(f"❌ 时间冲突\n(你有: {conflict_course})")
-                    else:
-                        st.success("✅ 时间空闲\n(可以去蹭!)")
+            # ==========================================
+            # 视图渲染：收起模式 vs 展开模式
+            # ==========================================
+            if st.session_state.compact_view:
+                # 收起模式：单行紧凑排版
+                with st.container(border=True):
+                    c_info, c_status = st.columns([8, 2])
+                    with c_info:
+                        # 用颜色标记课程名
+                        st.markdown(f"**{row['课程名称']}** &nbsp;|&nbsp; 👨‍🏫 {row['教师']} &nbsp;|&nbsp; 🏢 {row['教室']} &nbsp;|&nbsp; ⏰ 第 {start_p}-{end_p} 节")
+                    with c_status:
+                        if is_conflict:
+                            st.caption(f"❌ 冲突")
+                        else:
+                            st.caption(f"✅ 空闲")
+            else:
+                # 展开模式：完整卡片
+                with st.container(border=True):
+                    col1, col2 = st.columns([4, 1])
+                    with col1:
+                        st.subheader(f"📚 {row['课程名称']}")
+                        st.write(f"👨‍🏫 **教师**：{row['教师']} | 🏢 **教室**：{row['教室']}")
+                        st.write(f"👥 **班级**：{row.get('行政班级', '未知班级')}")
+                        st.write(f"⏰ **时间**：第 {start_p}-{end_p} 节 ({PERIOD_TIME.get(start_p, '')} 开始)")
+                        
+                        show_weeks = [w for w in row['周次列表'] if w in selected_weeks]
+                        st.caption(f"🗓️ 选中周次内的上课周：{show_weeks}")
+                        
+                    with col2:
+                        if is_conflict:
+                            st.error(f"❌ 时间冲突\n(你有: {conflict_course})")
+                        else:
+                            st.success("✅ 时间空闲\n(可以去蹭!)")
         
         if count_shown == 0:
-            st.info("这个时间段没有（或不显示有冲突的）课程~")
+            st.info("这个时间段没有（或已被旷课屏蔽）的课程~")
+        st.markdown("<br>", unsafe_allow_html=True) # 每天之间加点间距
