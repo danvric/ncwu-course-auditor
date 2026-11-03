@@ -8,11 +8,9 @@ import re
 st.set_page_config(page_title="蹭课小助手", page_icon="🏫", layout="wide")
 st.title("🏫 华水江淮校区蹭课系统")
 
-# 初始化视图状态（默认展开）
 if 'compact_view' not in st.session_state:
     st.session_state.compact_view = False
 
-# 节次时间映射
 PERIOD_TIME = {
     1: "08:00-08:45", 2: "08:55-09:40", 3: "09:55-10:40", 4: "10:50-11:35", 5: "11:45-12:30",
     6: "14:00-14:45", 7: "14:55-15:40", 8: "15:55-16:40", 9: "16:50-17:35", 10: "17:45-18:30",
@@ -75,14 +73,87 @@ def get_main_course_name(name):
     return name.strip()
 
 # ==========================================
-# 3. 你的个人课表字典
+# 3. 你的个人课表字典 (带精准周次版)
 # ==========================================
+# 格式: 星期 -> { 节次: [ {"name": "课名", "weeks": [周次]} ] }
+# 如果同一节次有不同周的课，可以放多门课
+def w(start, end):
+    return list(range(start, end + 1))
+
 MY_SCHEDULE = {
-    1: {3: "工程制图", 4: "工程制图", 5: "工程制图", 6: "高数", 7: "高数/劳动", 8: "Python", 9: "Python", 10: "Python", 11: "Python", 12: "Python"},
-    2: {3: "高数", 4: "高数", 6: "形策/思政", 7: "形策/思政", 8: "外语", 9: "外语", 10: "外语", 11: "劳动教育", 12: "劳动教育"},
-    3: {3: "体育", 4: "体育", 6: "Python/思政", 7: "Python/思政", 8: "工程制图", 9: "工程制图", 10: "工程制图", 11: "核科学", 12: "核科学"},
-    4: {1: "外语/Python", 2: "外语/Python", 3: "形策/思政", 4: "形策/思政", 5: "形策/思政", 6: "高数", 7: "高数", 8: "核科学", 9: "核科学", 11: "军理", 12: "军理"},
-    5: {3: "高数", 4: "高数", 5: "高数", 8: "核科学", 9: "核科学", 10: "核科学", 11: "军理", 12: "军理"},
+    1: { # 星期一
+        3: [{"name": "工程制图", "weeks": w(7, 14)}],
+        4: [{"name": "工程制图", "weeks": w(7, 14)}],
+        5: [{"name": "工程制图", "weeks": w(7, 14)}],
+        6: [{"name": "高等数学A（1）", "weeks": w(6, 17)}],
+        7: [{"name": "高等数学A（1）", "weeks": w(6, 17)}],
+        8: [{"name": "劳动教育1", "weeks": w(14, 15)}],
+        9: [{"name": "劳动教育1", "weeks": w(14, 15)}],
+        10: [{"name": "Python程序设计", "weeks": w(7, 16)}],
+        11: [{"name": "Python程序设计", "weeks": w(7, 16)}],
+    },
+    2: { # 星期二
+        3: [{"name": "高等数学A（1）", "weeks": w(13, 18)}],
+        4: [{"name": "高等数学A（1）", "weeks": w(13, 18)}],
+        5: [{"name": "高等数学A（1）", "weeks": w(13, 18)}],
+        6: [
+            {"name": "形势与政策（1）", "weeks": w(9, 10)},
+            {"name": "思想道德与法治", "weeks": w(11, 18)}
+        ],
+        7: [
+            {"name": "形势与政策（1）", "weeks": w(9, 10)},
+            {"name": "思想道德与法治", "weeks": w(11, 18)}
+        ],
+        8: [{"name": "大学外语(1)", "weeks": [7,9,11,13,15,17]}],
+        9: [{"name": "大学外语(1)", "weeks": [7,9,11,13,15,17]}],
+        10: [{"name": "大学外语(1)", "weeks": [7,9,11,13,15,17]}],
+        11: [{"name": "劳动教育1", "weeks": w(14, 15)}],
+        12: [{"name": "劳动教育1", "weeks": w(14, 15)}]
+    },
+    3: { # 星期三
+        3: [{"name": "体育1", "weeks": w(6, 18)}],
+        4: [{"name": "体育1", "weeks": w(6, 18)}],
+        6: [{"name": "Python程序设计(实验项目)", "weeks": [10,13,14,15,16]}],
+        7: [{"name": "Python程序设计(实验项目)", "weeks": [10,13,14,15,16]}],
+        8: [{"name": "工程制图", "weeks": w(7, 14)}],
+        9: [{"name": "工程制图", "weeks": w(7, 14)}],
+        11: [{"name": "核科学与技术导论", "weeks": w(13, 14)}],
+        12: [{"name": "核科学与技术导论", "weeks": w(13, 14)}]
+    },
+    4: { # 星期四
+        1: [{"name": "大学外语(1)", "weeks": [7,9,11,13,15,17]}],
+        2: [{"name": "大学外语(1)", "weeks": [7,9,11,13,15,17]}],
+        3: [
+            {"name": "形势与政策（1）", "weeks": w(9, 10)},
+            {"name": "思想道德与法治", "weeks": w(12, 14)}
+        ],
+        4: [
+            {"name": "形势与政策（1）", "weeks": w(9, 10)},
+            {"name": "思想道德与法治", "weeks": w(12, 14)}
+        ],
+        5: [
+            {"name": "形势与政策（1）", "weeks": w(9, 10)},
+            {"name": "思想道德与法治", "weeks": w(12, 14)}
+        ],
+        6: [{"name": "高等数学A（1）", "weeks": w(6, 17)}],
+        7: [{"name": "高等数学A（1）", "weeks": w(6, 17)}],
+        8: [{"name": "核科学与技术导论", "weeks": w(13, 14)}],
+        9: [{"name": "核科学与技术导论", "weeks": w(13, 14)}],
+        11: [{"name": "军事理论", "weeks": [6,7]}],
+        12: [{"name": "军事理论", "weeks": [6,7]}]
+    },
+    5: { # 星期五
+        3: [{"name": "高等数学A（1）", "weeks": w(6, 17)}],
+        4: [{"name": "高等数学A（1）", "weeks": w(6, 17)}],
+        5: [{"name": "高等数学A（1）", "weeks": w(6, 17)}],
+        6: [{"name": "工程制图", "weeks": w(7, 14)}],
+        7: [{"name": "工程制图", "weeks": w(7, 14)}],
+        8: [{"name": "核科学与技术导论", "weeks": w(13, 14)}],
+        9: [{"name": "核科学与技术导论", "weeks": w(13, 14)}],
+        10: [{"name": "核科学与技术导论", "weeks": w(13, 14)}],
+        11: [{"name": "军事理论", "weeks": [6,7]}],
+        12: [{"name": "军事理论", "weeks": [6,7]}]
+    },
     6: {}, 
     7: {}  
 }
@@ -93,11 +164,12 @@ MY_SCHEDULE = {
 try:
     df = load_data("教室课表.xlsx")
     all_courses = sorted(df['课程名称'].dropna().unique().tolist())
+    
     my_course_main_names = set()
     for day_dict in MY_SCHEDULE.values():
-        for course_str in day_dict.values():
-            for c in course_str.split('/'):
-                my_course_main_names.add(get_main_course_name(c))
+        for p_list in day_dict.values():
+            for c in p_list:
+                my_course_main_names.add(get_main_course_name(c["name"]))
     my_courses_list = sorted(list(my_course_main_names))
 except Exception as e:
     st.error(f"读取数据失败：{e}")
@@ -138,7 +210,6 @@ selected_days = st.sidebar.multiselect(
 )
 
 time_range = st.sidebar.slider("⏰ 查看哪几节", 1, 12, (6, 10))
-
 hide_conflicts = st.sidebar.checkbox("🙈 隐藏与我课表冲突的课程", value=False)
 
 # ==========================================
@@ -147,7 +218,6 @@ hide_conflicts = st.sidebar.checkbox("🙈 隐藏与我课表冲突的课程", v
 if not selected_weeks or not selected_days:
     st.warning("请至少在左侧选择一周和一天！")
 else:
-    # 顶部控制栏
     col_ctrl1, col_ctrl2, _ = st.columns([1, 1, 4])
     with col_ctrl1:
         if st.button("📖 一键展开所有", use_container_width=True):
@@ -187,33 +257,44 @@ else:
             periods = row['节次列表']
             start_p, end_p = periods[0], periods[-1]
             
-            # 冲突检测
+            # ==========================================
+            # 【核心升级】：精准到周的冲突检测
+            # ==========================================
+            # 算出这门蹭课，在你选中的周次里，具体是第几周上
+            actual_weeks_for_this_course = [w for w in row['周次列表'] if w in selected_weeks]
+            
             is_conflict = False
             conflict_course = ""
+            
             for p in periods:
                 if p in MY_SCHEDULE[day]:
-                    my_course_name = MY_SCHEDULE[day][p]
-                    my_course_main = get_main_course_name(my_course_name)
-                    is_my_course_skipped = any(skip_c in my_course_main for skip_c in skip_courses)
-                    if not is_my_course_skipped:
-                        is_conflict = True
-                        conflict_course = my_course_name
-                        break
+                    for my_course in MY_SCHEDULE[day][p]:
+                        my_course_main = get_main_course_name(my_course["name"])
+                        
+                        # 如果这门课被你旷了，跳过
+                        if any(skip_c in my_course_main for skip_c in skip_courses):
+                            continue
+                            
+                        # 判断：我的课的周次 与 这门蹭课的实际周次 是否有交集
+                        intersect_weeks = set(actual_weeks_for_this_course).intersection(set(my_course["weeks"]))
+                        if intersect_weeks:
+                            is_conflict = True
+                            weeks_str = ",".join(map(str, sorted(list(intersect_weeks))))
+                            conflict_course = f"{my_course['name']} (第{weeks_str}周)"
+                            break
+                if is_conflict:
+                    break
             
             if hide_conflicts and is_conflict:
                 continue
                 
             count_shown += 1
             
-            # ==========================================
-            # 视图渲染：收起模式 vs 展开模式
-            # ==========================================
+            # 视图渲染
             if st.session_state.compact_view:
-                # 收起模式：单行紧凑排版
                 with st.container(border=True):
                     c_info, c_status = st.columns([8, 2])
                     with c_info:
-                        # 用颜色标记课程名
                         st.markdown(f"**{row['课程名称']}** &nbsp;|&nbsp; 👨‍🏫 {row['教师']} &nbsp;|&nbsp; 🏢 {row['教室']} &nbsp;|&nbsp; ⏰ 第 {start_p}-{end_p} 节")
                     with c_status:
                         if is_conflict:
@@ -221,7 +302,6 @@ else:
                         else:
                             st.caption(f"✅ 空闲")
             else:
-                # 展开模式：完整卡片
                 with st.container(border=True):
                     col1, col2 = st.columns([4, 1])
                     with col1:
@@ -241,4 +321,4 @@ else:
         
         if count_shown == 0:
             st.info("这个时间段没有（或已被旷课屏蔽）的课程~")
-        st.markdown("<br>", unsafe_allow_html=True) # 每天之间加点间距
+        st.markdown("<br>", unsafe_allow_html=True)
