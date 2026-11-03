@@ -23,7 +23,7 @@
 ### 2. 克隆本项目
 在终端中执行以下命令将项目下载到本地：
 ```bash
-git clone [https://github.com/danvric/ncwu-course-auditor.git](https://github.com/danvric/ncwu-course-auditor.git)
+git clone https://github.com/danvric/ncwu-course-auditor.git
 cd ncwu-course-auditor
 ```
 
@@ -50,12 +50,14 @@ pip install pandas openpyxl streamlit
 ```
 含义：**星期一第3、4节有工程制图，第6节有高数**。
 
+> 焚决：不知道怎么写可以把你的课表截图给AI，然后把app.py发给AI，然后他帮你填
+
 ### 6. 启动应用
 在终端中执行以下命令：
 ```bash
 python -m streamlit run app.py
 ```
-程序会自动在浏览器中打开 `[http://localhost:8501/](http://localhost:8501/)`，即可开始使用。
+程序会自动在浏览器中打开 `http://localhost:8501/`，即可开始使用。
 
 ## 📂 目录结构
 ```text
@@ -69,6 +71,19 @@ ncwu-course-auditor/
 ├── LICENSE                 # 开源协议文件
 └── README.md               # 说明文档
 ```
+
+## 已知局限性与注意事项
+在目前的版本中，由于个人课表配置是静态的，存在以下一个已知局限：
+
+1. 个人课表未按周次动态适配：
+在代码中的 MY_SCHEDULE 配置字典中，我们只定义了星期几和第几节，并没有区分具体的周次。这意味着系统会默认你每周在这个时间段都有课。
+
+2. 存在的问题：
+如果一门课并不是每周都上（例如某门课只在单周上，或者只在第9-10周上），系统在其它周次仍然会判定该时间段为冲突状态，从而可能导致标红误报。而你明明在其他周次是空闲的，却无法看到可以去蹭的课。
+
+- 目前的临时解决方案：
+当你在某个特定的周次，发现自己在这个时间段其实并没有课，但系统提示时间冲突时，你可以直接在左侧侧边栏的“选择要旷掉的课”下拉框中，把这门课勾选上。系统会自动忽略它的冲突，让你在该周次正常看到被隐藏的蹭课选项。
+
 
 ## ⚠️ 免责声明
 本工具仅供个人学习和辅助蹭课使用，请勿用于任何商业用途或恶意爬取教务系统。
